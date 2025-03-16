@@ -1,0 +1,107 @@
+---
+- name: Set facts
+  ansible.builtin.set_fact:
+    desired_port: "{{ ansible_port }}"
+    instance_host: "{{ ansible_host }}"
+
+- name: Check if ssh is running on "{{ desired_port }}"
+  delegate_to: localhost
+  ansible.builtin.wait_for:
+    port: "{{ desired_port }}"
+    host: "{{ instance_host }}"
+    timeout: 3
+  ignore_errors: true
+  register: desired_port_check
+
+- name: Check if ssh is running on "22"
+  delegate_to: localhost
+  ansible.builtin.wait_for:
+    port: "22"
+    host: "{{ instance_host }}"
+    timeout: 3
+  ignore_errors: true
+  register: default_port_check
+
+- ansible.builtin.fail:
+    msg: "ssh is not running (or is running on an unknown port)"
+  when: default_port_check is failed and desired_port_check is failed
+
+- when: default_port_check is success
+  block:
+    - ansible.builtin.debug:
+        msg: "SSH is running on default port"
+
+    - name: Configure ansible to use port "22"
+      ansible.builtin.set_fact:
+        ansible_port: "22"
+
+- when: desired_port_check is success
+  block:
+    - ansible.builtin.debug:
+        msg: "SSH is running on desired port"
+
+- name: Set ssh_port_t to {{ desired_port }}/tcp
+  community.general.seport:
+    ports: "{{ desired_port }}"
+    proto: tcp
+    setype: ssh_port_t
+    state: present
+  become: true
+
+- name: Set port "{{ desired_port }}" for SSH
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^Port "
+    line: 'Port "{{ desired_port }}"'
+  become: true
+  notify: reload sshd
+
+- name: Disable empty password login for all users
+  ansible.builtin.lineinfile:
+    dest: /etc/ssh/sshd_config
+    regexp: '^#?PermitEmptyPasswords'
+    line: PermitEmptyPasswords no
+  become: true
+  notify: reload sshd
+
+- name: Disable password login for all users
+  ansible.builtin.lineinfile:
+    dest: /etc/ssh/sshd_config
+    regexp: '^(#\s*)?PasswordAuthentication '
+    line: PasswordAuthentication no
+  become: true
+  notify: reload sshd
+
+- name: Disable remote root user login
+  ansible.builtin.lineinfile:
+    dest: /etc/ssh/sshd_config
+    regexp: '^#?PermitRootLogin'
+    line: 'PermitRootLogin no'
+  become: true
+  notify: reload sshd
+
+- name: Disable remote root user login from conf.d
+  ansible.builtin.file:
+    path: /etc/ssh/sshd_config.d/01-permitrootlogin.conf
+    state: absent
+  become: true
+  notify: reload sshd
+
+- name: Enable security updates
+  ansible.builtin.dnf:
+    name: dnf-automatic
+  become: true
+
+- name: Set upgrade_type to security
+  ansible.builtin.lineinfile:
+    dest: /etc/dnf/automatic.conf
+    regexp: upgrade_type
+    line: "upgrade_type = security"
+  become: true
+
+- name: Allow apply updates
+  ansible.builtin.lineinfile:
+    dest: /etc/dnf/automatic.conf
+    regexp: apply_updates
+    line: "apply_updates = yes"
+  become: true

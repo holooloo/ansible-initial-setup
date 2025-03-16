@@ -1,0 +1,18 @@
+---
+- name: copy root authorized_keys
+  become: true
+  ansible.builtin.copy:
+    src: "{{ ssh_key_root_authorized_keys }}"
+    dest: "/root/.ssh/authorized_keys"
+    backup: yes
+    mode: 0600
+
+- name: copy ec2-user authorized_keys
+  become: true
+  ansible.builtin.copy:
+    src: "{{ ssh_key_root_authorized_keys }}"
+    dest: "/home/ec2-user/.ssh/authorized_keys"
+    backup: yes
+    mode: 0600
+    owner: ec2-user
+    group: ec2-user

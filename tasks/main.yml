@@ -1,0 +1,20 @@
+- name: Setup ssh
+  ansible.builtin.include_tasks:
+    file: ssh.yml
+    apply:
+      tags: [initial]
+  tags: [initial]
+
+- name: Setup iptables
+   ansible.builtin.include_tasks:
+     file: iptables.yml
+     apply:
+       tags: [initial]
+   tags: [initial]
+
+- name: Setup ssh_keys
+  ansible.builtin.include_tasks:
+    file: ssh_keys.yml
+    apply:
+      tags: [ssh_keys]
+  tags: [ssh_keys]

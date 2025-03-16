@@ -1,0 +1,4 @@
+common_rpms:
+  - htop
+  - nc
+  - net-tools

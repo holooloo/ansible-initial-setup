@@ -1,0 +1,5 @@
+ansible_port: 2442
+
+ssh_users:
+  - name: holooloo
+    groups: []
